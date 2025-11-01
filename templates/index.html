@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Many As Penny (MAP) Tracker</title>
+    
+    <style>
+        body {
+            background-color: #121212; 
+            color: #e1e1e1; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background-color: #1e1e1e; 
+            padding: 20px; 
+            border-radius: 10px; 
+            border: 1px solid #333; 
+            max-width: 1400px;
+            margin-left: auto; 
+            margin-right: auto; 
+        }
+        
+        h1 {
+            color: #4CAF50; 
+            font-size: 2.5em; 
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        .add-form {
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        .add-form input[type="text"] {
+            padding: 10px;
+            font-size: 1em;
+            width: 200px;
+            background-color: #222;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: #e1e1e1;
+        }
+        .add-form button {
+            padding: 10px 15px;
+            font-size: 1em;
+            color: #ffffff;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .add-form button:hover {
+            background-color: #45a049;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .stock-card {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            text-align: center;
+            position: relative;
+            transition: all 0.2s ease-in-out; 
+            display: flex;
+            flex-direction: column;
+        }
+
+        .delete-form {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .stock-card:hover .delete-form {
+            opacity: 1;
+        }
+        .delete-form button {
+            background-color: #333;
+            border: 1px solid #555;
+            color: #bbb;
+            font-weight: bold;
+            font-size: 1em;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            line-height: 26px;
+            padding: 0;
+            transition: all 0.2s ease-in-out;
+        }
+        .delete-form button:hover {
+            background-color: #dc3545;
+            border-color: #ff6b81;
+            color: #ffffff;
+        }
+        
+        .stock-info {
+            flex-grow: 1;
+        }
+        .stock-symbol {
+            font-size: 2em;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #ffffff;
+            cursor: default;
+        }
+        .current-price {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #ffffff;
+        }
+        .company-name {
+            font-size: 0.9em;
+            color: #aaa;
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease-out;
+        }
+        .stock-symbol:hover + .company-name,
+        .company-name:hover {
+            opacity: 1;
+            height: 20px;
+            margin-top: 5px;
+        }
+        .price-change {
+            font-size: 1.2em;
+        }
+        .positive {
+            color: #4CAF50; 
+        }
+        .negative {
+            color: #dc3545; 
+        }
+        .details {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #aaa;
+            text-align: left;
+        }
+        .details p {
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .details span {
+            font-weight: bold;
+            color: #e1e1e1;
+        }
+        .error {
+            color: #dc3545;
+        }
+        p {
+            color: #aaa;
+        }
+
+        /* Style for the "Add Alert" form */
+        .alert-form {
+            margin-top: 20px;
+            border-top: 1px solid #333;
+            padding-top: 15px;
+        }
+        .alert-form input[type="email"],
+        .alert-form input[type="number"],
+        .alert-form select {
+            width: 90%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background-color: #222;
+            border: 1px solid #444;
+            color: #e1e1e1;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        /* Combine number and select on one line */
+        .alert-form .price-row {
+            display: flex;
+            gap: 10px;
+        }
+        .alert-form .price-row input[type="number"] {
+            width: 50%;
+            margin-bottom: 0;
+        }
+        .alert-form .price-row select {
+            width: 50%;
+            margin-bottom: 0;
+        }
+        
+        .alert-form button {
+            display: block;
+            width: 100%;
+            margin-top: 15px;
+            padding: 8px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #4CAF50; /* Green submit */
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .alert-form button:hover {
+            background-color: #45a049;
+        }
+
+        /* Style for the "Existing Alerts" list */
+        .existing-alerts {
+            margin-top: 15px;
+            border-top: 1px solid #333;
+            padding-top: 15px;
+            text-align: left;
+        }
+        .existing-alerts h4 {
+            margin-top: 0;
+            text-align: center;
+            color: #aaa;
+        }
+        .alert-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 5px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            background-color: #2a2a2a;
+            margin-bottom: 5px;
+        }
+        .alert-row.triggered { /* Style for triggered alerts */
+            background-color: #333;
+            color: #777;
+            text-decoration: line-through;
+        }
+        .alert-row .email-text {
+            /* Truncate long emails */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+        .alert-row-delete-form button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 0.8em;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            line-height: 22px;
+        }
+
+        /* --- NEW: Style for the Footer Card --- */
+        .footer-card {
+            text-align: center;
+            margin-top: 30px; /* Add space above the footer */
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            max-width: 1400px; /* Match the container and header */
+            margin-left: auto;
+            margin-right: auto;
+            color: #aaa; /* Lighter gray text */
+        }
+        .footer-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px; /* Space between logo and text */
+        }
+        .github-logo {
+            width: 24px; /* Set logo size */
+            height: 24px;
+            filter: invert(1); /* Makes the black logo white */
+        }
+        .footer-card a {
+            color: #4CAF50; /* Use the main green for the link */
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .footer-card a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Many As Penny (MAP)</h1>
+        <p>Live Penny Stock Tracker</p>
+        <form action="{{ url_for('add_stock') }}" method="POST" class="add-form">
+            <input type="text" name="new_stock_symbol" placeholder="Enter stock symbol" required>
+            <button type="submit">Add Stock</button>
+        </form>
+    </div>
+
+    <div class="container">
+        {% if stocks %}
+            {% for stock in stocks %}
+            
+                <div class="stock-card">
+                    
+                    <form action="{{ url_for('delete_stock') }}" method="POST" class="delete-form">
+                        <input type="hidden" name="stock_id" value="{{ stock.id }}">
+                        <button type="submit" title="Delete Stock">X</button>
+                    </form>
+                    
+                    <div class="stock-info">
+                        {% if stock.error %}
+                            <div class="stock-symbol">{{ stock.symbol }}</div>
+                            <p class="error">{{ stock.error }}</p>
+                        {% else %}
+                            <div class="stock-symbol">{{ stock.symbol }}</div>
+                            <div class="company-name">{{ stock.name | default('N/A', true) }}</div>
+                            
+                            <div class="current-price">${{ "%.2f"|format(stock.current_price) }}</div>
+                            
+                            {% if stock.percent_change >= 0 %}
+                                <div class="price-change positive">
+                                    +${{ "%.2f"|format(stock.price_change) }} (+{{ "%.2f"|format(stock.percent_change) }}%) ▲
+                                </div>
+                            {% else %}
+                                <div class="price-change negative">
+                                    ${{ "%.2f"|format(stock.price_change) }} ({{ "%.2f"|format(stock.percent_change) }}%) ▼
+                                </div>
+                            {% endif %}
+                            <div class="details">
+                                <p>Open: <span>${{ "%.2f"|format(stock.opening_price) }}</span></p>
+                                <p>High: <span>${{ "%.2f"|format(stock.high_price) }}</span></p>
+                                <p>Low: <span>${{ "%.2f"|format(stock.low_price) }}</span></p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <form action="{{ url_for('add_alert') }}" method="POST" class="alert-form">
+                        <input type="hidden" name="stock_id" value="{{ stock.id }}">
+                        
+                        <input type="email" name="alert_email" placeholder="Enter email for alert" required>
+                        
+                        <div class="price-row">
+                            <input type="number" step="0.01" name="target_price" placeholder="Target Price" required>
+                            <select name="alert_type" required>
+                                <option value="high">Alert if &ge;</option> <option value="low">Alert if &le;</option>  </select>
+                        </div>
+                        <button type="submit">Add Alert</button>
+                    </form>
+
+                    <div class="existing-alerts">
+                        <h4>Current Alerts</h4>
+                        {% for alert in stock.alerts %}
+                            <div class="alert-row {% if alert.is_triggered %}triggered{% endif %}">
+                                <span class="email-text" title="{{ alert.alert_email }}">
+                                    {{ alert.alert_email }}:
+                                    <strong>
+                                        {% if alert.alert_type == 'high' %}&ge;{% else %}&le;{% endif %}
+                                        ${{ "%.2f"|format(alert.target_price) }}
+                                    </strong>
+                                </span>
+                                <form action="{{ url_for('delete_alert') }}" method="POST" class="alert-row-delete-form">
+                                    <input type="hidden" name="alert_id" value="{{ alert.id }}">
+                                    <button type="submit" title="Delete this alert">X</button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <p style="text-align: center; font-size: 0.9em; color: #777;">No alerts set.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No stocks added yet. Use the form above to add one!</p>
+        {% endif %}
+    </div>
+
+    <footer class="footer-card">
+        <div class="footer-content">
+            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Logo" class="github-logo">
+            <span>
+                Created by 
+                <a href="https://github.com/mikelisondra" target="_blank" rel="noopener noreferrer">
+                    Mike Jay-R B. Lisondra
+                </a>
+            </span>
+        </div>
+    </footer>
+
+</body>
+</html>
