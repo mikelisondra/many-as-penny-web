@@ -1,20 +1,20 @@
 import os
 import requests
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-# IMPORTS for sending email
-import smtplib
-import ssl
-from email.message import EmailMessage
+# --- NEW IMPORTS for Brevo API ---
+import brevo_python
+from brevo_python.rest import ApiException
+from brevo_python.models.send_smtp_email import SendSmtpEmail
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize the Flask application
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') 
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') # Correct key
 
 # Connect to Finnhub
 FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
@@ -25,20 +25,21 @@ SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Get All Brevo Credentials
-BREVO_SERVER = os.getenv('BREVO_SERVER')
-BREVO_PORT = os.getenv('BREVO_PORT')
-BREVO_USER = os.getenv('BREVO_USER') # Brevo SMTP login
-BREVO_PASS = os.getenv('BREVO_PASS') # Brevo SMTP key
-BREVO_SENDER = os.getenv('BREVO_SENDER') # Validated 'From' email
+# --- NEW: Get Brevo API Credentials ---
+BREVO_API_KEY = os.getenv('BREVO_API_KEY')
+BREVO_SENDER = os.getenv('BREVO_SENDER') # Your validated 'From' email
+
+# --- NEW: Configure Brevo API ---
+configuration = brevo_python.Configuration()
+configuration.api_key['api-key'] = BREVO_API_KEY
+api_instance = brevo_python.TransactionalEmailsApi(brevo_python.ApiClient(configuration))
 
 
-# Brevo Email Function
+# --- NEW: Brevo API Email Function (replaces SMTP) ---
 def send_email_alert(target_email, symbol, name, alert_type, current_price, target_price):
-    """Builds and sends an HTML email alert using Brevo SMTP."""
+    """Builds and sends an HTML email alert using the Brevo API."""
     
-    # Check for all the new variables
-    if not BREVO_SERVER or not BREVO_PASS or not BREVO_USER or not BREVO_SENDER:
+    if not BREVO_API_KEY or not BREVO_SENDER:
         print("Brevo keys not set in .env. Skipping email.")
         return
 
@@ -46,7 +47,7 @@ def send_email_alert(target_email, symbol, name, alert_type, current_price, targ
         print(f"No alert_email set for {symbol}. Skipping email.")
         return
 
-    # Set dynamic content based on alert type
+    # Set dynamic content
     if alert_type == 'high':
         subject = f"✅ High Price Alert for {symbol}!"
         color = "#4CAF50" # Green
@@ -86,28 +87,19 @@ def send_email_alert(target_email, symbol, name, alert_type, current_price, targ
     </html>
     """
     
-    # Create the email message object
-    em = EmailMessage()
-    # The 'From' address is the validated BREVO_SENDER
-    em['From'] = BREVO_SENDER 
-    em['To'] = target_email
-    em['Subject'] = subject
-    em.add_alternative(html_content, subtype='html') # Set the HTML content
+    # Create the email object
+    send_smtp_email = SendSmtpEmail(
+        to=[{"email": target_email}],
+        sender={"email": BREVO_SENDER, "name": "MAP Alert"},
+        subject=subject,
+        html_content=html_content
+    )
     
-    # Send the email via Brevo's SMTP server
+    # Send the email
     try:
-        context = ssl.create_default_context()
-        
-        with smtplib.SMTP(BREVO_SERVER, int(BREVO_PORT)) as server:
-            server.starttls(context=context) # Secure the connection
-            # Login is done with BREVO_USER and BREVO_PASS
-            server.login(BREVO_USER, BREVO_PASS) 
-            # Email is sent from BREVO_SENDER to the target
-            server.sendmail(BREVO_SENDER, target_email, em.as_string()) 
-            
-        print(f"Email sent via Brevo to {target_email}.")
-        
-    except Exception as e:
+        api_response = api_instance.send_transac_email(send_smtp_email)
+        print(f"Email sent via Brevo API to {target_email}. Message ID: {api_response.message_id}")
+    except ApiException as e:
         print(f"Error: Unable to send Brevo email. {e}")
 
 
@@ -204,23 +196,67 @@ def home():
     return render_template('index.html', stocks=stocks)
 
 
+# --- MODIFIED: add_stock function ---
+# This version includes the bug fix for searching by name
 @app.route('/add_stock', methods=['POST'])
 def add_stock():
-    """Adds a new stock symbol AND name to the database."""
-    new_symbol = request.form.get('new_stock_symbol')
+    """Searches for a stock and adds it to the database."""
+    search_term = request.form.get('new_stock_symbol')
     
-    if new_symbol:
-        new_symbol = new_symbol.strip().upper()
-        company_name = get_stock_profile(new_symbol)
+    if not search_term:
+        return redirect(url_for('home'))
+        
+    # Step 1: Search for the best match
+    stock_data = search_for_stock(search_term)
+    
+    # Step 2: If a match is found, add it
+    if stock_data:
+        new_symbol = stock_data.get('symbol')
+        # Use 'description' from search, it's often better than 'name' from profile
+        company_name = stock_data.get('description') 
+        
         try:
-            supabase.table('stocks').insert({
-                'symbol': new_symbol,
-                'name': company_name
-            }).execute()
+            # Check if symbol already exists
+            existing = supabase.table('stocks').select('id').eq('symbol', new_symbol).execute()
+            if not existing.data:
+                # Add to database
+                supabase.table('stocks').insert({
+                    'symbol': new_symbol,
+                    'name': company_name
+                }).execute()
+            else:
+                flash(f"'{new_symbol}' is already in your list.")
+                
         except Exception as e:
             print(f"Error adding stock: {e}")
-    
+            flash("Error adding stock to database.")
+            
+    # Step 3: If no match is found, send an error to the user
+    else:
+        flash(f"No stock found for '{search_term}'. Please try a different name or ticker.")
+
     return redirect(url_for('home'))
+
+
+# --- NEW: Function to search for a stock symbol ---
+def search_for_stock(search_term):
+    """Uses Finnhub Search to find the best match for a search term."""
+    try:
+        url = f'{FINNHUB_BASE_URL}/search?q={search_term}&token={FINNHUB_API_KEY}'
+        response = requests.get(url)
+        response.raise_for_status() 
+        data = response.json()
+        
+        # Check if 'result' exists and has items
+        if data.get('result') and len(data['result']) > 0:
+            # Return the first and best match
+            return data['result'][0] 
+        else:
+            return None # No match found
+            
+    except requests.exceptions.RequestException as e:
+        print(f"Error searching for stock {search_term}: {e}")
+        return None
 
 
 @app.route('/delete_stock', methods=['POST'])
