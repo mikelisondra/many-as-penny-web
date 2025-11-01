@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-# --- NEW IMPORTS for Brevo API ---
+# NEW IMPORTS for Brevo API
 import brevo_python
 from brevo_python.rest import ApiException
 from brevo_python.models.send_smtp_email import SendSmtpEmail
