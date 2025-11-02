@@ -1,8 +1,11 @@
 import os
 import requests
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from dotenv import load_dotenv
 from supabase import create_client, Client
+
+# Imports for Login System
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 # IMPORTS for Brevo API
 import brevo_python
@@ -34,12 +37,29 @@ configuration = brevo_python.Configuration()
 configuration.api_key['api-key'] = BREVO_API_KEY
 api_instance = brevo_python.TransactionalEmailsApi(brevo_python.ApiClient(configuration))
 
+# Login Manager Setup
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'register' # Redirect to /register if not logged in
+login_manager.login_message = None     # THIS IS THE FIX
+login_manager.login_message_category = 'info' 
+
+# User Class for Flask-Login
+class User(UserMixin):
+    def __init__(self, id, email):
+        self.id = id
+        self.email = email
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Loads a user object from the session for Flask-Login."""
+    email = session.get('email')
+    return User(id=user_id, email=email)
 
 # Brevo API Email Function
 def send_email_alert(target_email, symbol, name, alert_type, current_price, target_price):
     """Builds and sends an HTML email alert using the Brevo API."""
     
-    # Check for all the new variables
     if not BREVO_API_KEY or not BREVO_SENDER:
         print("Brevo keys not set in .env. Skipping email.")
         return
@@ -147,144 +167,194 @@ def search_for_stock(search_term):
         return None
 
 
-@app.route('/')
-def home():
-    """Renders the homepage with a list of stock data."""
+# Register Route
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home')) 
     
-    # 1. Get all stocks from the DB
-    stocks_response = supabase.table('stocks').select('id, symbol, name').execute()
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        try:
+            user = supabase.auth.sign_up({
+                "email": email,
+                "password": password,
+            })
+            flash('Registration successful! Please check your email to confirm.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            flash(f'Registration failed: {str(e)}', 'error')
+            
+    return render_template('register.html')
+
+# Login Route
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        try:
+            user_session = supabase.auth.sign_in_with_password({
+                "email": email,
+                "password": password,
+            })
+            
+            user_obj = User(id=user_session.user.id, email=user_session.user.email)
+            login_user(user_obj) 
+            
+            session['email'] = user_session.user.email
+            
+            return redirect(url_for('home'))
+        except Exception as e:
+            flash(f'Login failed. Check email/password.', 'error')
+            
+    return render_template('login.html')
+
+# Logout Route
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user() 
+    session.pop('email', None) 
+    return redirect(url_for('login'))
+
+
+# Homepage Route
+@app.route('/')
+@login_required 
+def home():
+    """Renders the homepage with a list of stock data for the logged-in user."""
+    
+    user_id = current_user.id
+    
+    stocks_response = supabase.table('stocks').select('id, symbol, name').eq('user_id', user_id).execute()
     stocks = stocks_response.data 
     
-    # 2. Get all alerts from the DB
-    alerts_response = supabase.table('alerts').select('*').execute()
+    alerts_response = supabase.table('alerts').select('*').eq('user_id', user_id).execute()
     all_alerts = alerts_response.data
     
-    # 3. Combine them and check prices
     for stock in stocks:
-        # Get live price data
         stock_data = get_stock_quote(stock['symbol'])
+        stock.update(stock_data) 
         
-        # Add price data to the stock object
-        stock['current_price'] = stock_data.get('current_price')
-        stock['price_change'] = stock_data.get('price_change')
-        stock['percent_change'] = stock_data.get('percent_change')
-        stock['opening_price'] = stock_data.get('opening_price')
-        stock['high_price'] = stock_data.get('high_price')
-        stock['low_price'] = stock_data.get('low_price')
-        stock['error'] = stock_data.get('error')
-        
-        # Find all alerts for this specific stock
         stock_alerts = [alert for alert in all_alerts if alert['stock_id'] == stock['id']]
         
-        # Check for triggers
-        if not stock['error'] and stock['current_price'] is not None:
+        if not stock.get('error') and stock.get('current_price') is not None:
             current_price = stock['current_price']
             
             for alert in stock_alerts:
                 is_triggered = False
-                
-                # Check High alerts
                 if alert['alert_type'] == 'high' and current_price >= alert['target_price']:
                     is_triggered = True
-                
-                # Check Low alerts
                 elif alert['alert_type'] == 'low' and current_price <= alert['target_price']:
                     is_triggered = True
 
-                # If triggered and not already sent, send email!
                 if is_triggered and alert['is_triggered'] is False:
                     print(f"Triggering {alert['alert_type']} alert for {stock['symbol']} to {alert['alert_email']}")
                     send_email_alert(
                         alert['alert_email'], stock['symbol'], stock['name'],
                         alert['alert_type'], current_price, alert['target_price']
                     )
-                    # Mark as triggered in DB to prevent spam
                     supabase.table('alerts').update({'is_triggered': True}).eq('id', alert['id']).execute()
-                    alert['is_triggered'] = True # Update for the template
+                    alert['is_triggered'] = True
         
-        # Attach the list of alerts to the stock object
         stock['alerts'] = stock_alerts
             
     return render_template('index.html', stocks=stocks)
 
 
+# Add Stock Function
 @app.route('/add_stock', methods=['POST'])
+@login_required 
 def add_stock():
-    """Searches for a stock, validates it, and adds it to the database."""
+    """Searches for a stock and adds it to the user's database."""
     search_term = request.form.get('new_stock_symbol')
+    user_id = current_user.id 
     
     if not search_term:
         return redirect(url_for('home'))
         
-    # Step 1: Search for the best match
     stock_data = search_for_stock(search_term)
     
     if stock_data:
         new_symbol = stock_data.get('symbol')
         company_name = stock_data.get('description') 
         
-        # VALIDATION STEP: Test if we can get a quote for this symbol.
         test_quote = get_stock_quote(new_symbol)
         
         if test_quote.get('error'):
-            # This is a bad symbol (like AMAN.DB). Don't add it.
-            flash(f"Found '{new_symbol}' but could not fetch price data. It may be an invalid or non-US ticker.")
+            flash(f"Found '{new_symbol}' but could not fetch price data. It may be an invalid or non-US ticker.", "error")
             return redirect(url_for('home'))
             
         try:
-            # Check if symbol already exists
-            existing = supabase.table('stocks').select('id').eq('symbol', new_symbol).execute()
+            existing = supabase.table('stocks').select('id').eq('symbol', new_symbol).eq('user_id', user_id).execute()
             if not existing.data:
-                # Add to database
                 supabase.table('stocks').insert({
                     'symbol': new_symbol,
-                    'name': company_name
+                    'name': company_name,
+                    'user_id': user_id 
                 }).execute()
             else:
-                flash(f"'{new_symbol}' is already in your list.")
+                flash(f"'{new_symbol}' is already in your list.", "error")
                 
         except Exception as e:
             print(f"Error adding stock: {e}")
-            flash("Error adding stock to database.")
+            flash("Error adding stock to database.", "error")
             
     else:
-        # No match was found by the search
-        flash(f"No stock found for '{search_term}'. Please try a different name or ticker.")
+        flash(f"No stock found for '{search_term}'. Please try a different name or ticker.", "error")
 
     return redirect(url_for('home'))
 
 
+# Delete Stock Function
 @app.route('/delete_stock', methods=['POST'])
+@login_required
 def delete_stock():
     """Deletes a stock from the database."""
     stock_id_to_delete = request.form.get('stock_id')
+    user_id = current_user.id
     
     if stock_id_to_delete:
         try:
-            # Cascade delete setting will automatically delete all related alerts
-            supabase.table('stocks').delete().eq('id', stock_id_to_delete).execute()
+            supabase.table('stocks').delete().eq('id', stock_id_to_delete).eq('user_id', user_id).execute()
         except Exception as e:
             print(f"Error deleting stock: {e}")
             
     return redirect(url_for('home'))
 
 
+# Add Alert Function
 @app.route('/add_alert', methods=['POST'])
+@login_required
 def add_alert():
     """Adds a new user alert to the alerts table."""
     stock_id = request.form.get('stock_id')
     email = request.form.get('alert_email')
     price = request.form.get('target_price')
-    alert_type = request.form.get('alert_type') # 'high' or 'low'
+    alert_type = request.form.get('alert_type')
+    user_id = current_user.id
     
     if stock_id and email and price and alert_type:
         try:
+            stock_check = supabase.table('stocks').select('id').eq('id', stock_id).eq('user_id', user_id).execute()
+            if not stock_check.data:
+                flash("Error: You do not own this stock.", "error")
+                return redirect(url_for('home'))
+
             supabase.table('alerts').insert({
                 'stock_id': stock_id,
                 'alert_email': email,
                 'target_price': price,
                 'alert_type': alert_type,
-                'is_triggered': False
+                'is_triggered': False,
+                'user_id': user_id
             }).execute()
         except Exception as e:
             print(f"Error adding alert: {e}")
@@ -292,14 +362,17 @@ def add_alert():
     return redirect(url_for('home'))
 
 
+# Delete Alert Function
 @app.route('/delete_alert', methods=['POST'])
+@login_required
 def delete_alert():
     """Deletes a single alert from the database."""
     alert_id = request.form.get('alert_id')
+    user_id = current_user.id
     
     if alert_id:
         try:
-            supabase.table('alerts').delete().eq('id', alert_id).execute()
+            supabase.table('alerts').delete().eq('id', alert_id).eq('user_id', user_id).execute()
         except Exception as e:
             print(f"Error deleting alert: {e}")
     
