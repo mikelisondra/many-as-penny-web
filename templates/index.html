@@ -32,6 +32,23 @@
             margin-top: 10px;
             margin-bottom: 10px;
         }
+
+        /* Style for flash messages */
+        .flash-messages {
+            list-style: none;
+            padding: 0;
+            margin: 0 auto 20px auto;
+            max-width: 1400px;
+        }
+        .flash-messages li {
+            padding: 15px;
+            background-color: #dc3545;
+            color: white;
+            font-weight: bold;
+            border-radius: 10px;
+            border: 1px solid #ff6b81;
+        }
+
         .add-form {
             margin-top: 15px;
             margin-bottom: 10px;
@@ -88,8 +105,8 @@
             opacity: 1;
         }
         .delete-form button {
-            background-color: #333;
-            border: 1px solid #555;
+            background-color: #2a2a2a;
+            border: 1px solid #444;
             color: #bbb;
             font-weight: bold;
             font-size: 1em;
@@ -207,7 +224,7 @@
             padding: 8px;
             font-weight: bold;
             color: #fff;
-            background-color: #4CAF50; /* Green submit */
+            background-color: #4CAF50;
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -250,6 +267,16 @@
             text-overflow: ellipsis;
             max-width: 180px;
         }
+        
+        .alert-row-delete-form {
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+        
+        .alert-row:hover .alert-row-delete-form {
+            opacity: 1;
+        }
+
         .alert-row-delete-form button {
             background: #dc3545;
             color: white;
@@ -262,34 +289,39 @@
             cursor: pointer;
             padding: 0;
             line-height: 22px;
+            transition: all 0.2s ease-in-out;
         }
 
-        /* --- NEW: Style for the Footer Card --- */
+        .alert-row-delete-form button:hover {
+            background: #ff6b81; 
+        }
+
+        /* Style for the Footer Card */
         .footer-card {
             text-align: center;
-            margin-top: 30px; /* Add space above the footer */
+            margin-top: 30px;
             background-color: #1e1e1e;
             padding: 20px;
             border-radius: 10px;
             border: 1px solid #333;
-            max-width: 1400px; /* Match the container and header */
+            max-width: 1400px;
             margin-left: auto;
             margin-right: auto;
-            color: #aaa; /* Lighter gray text */
+            color: #aaa;
         }
         .footer-content {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px; /* Space between logo and text */
+            gap: 10px;
         }
         .github-logo {
-            width: 24px; /* Set logo size */
+            width: 24px;
             height: 24px;
-            filter: invert(1); /* Makes the black logo white */
+            filter: invert(1);
         }
         .footer-card a {
-            color: #4CAF50; /* Use the main green for the link */
+            color: #4CAF50;
             text-decoration: none;
             font-weight: bold;
         }
@@ -300,11 +332,21 @@
 </head>
 <body>
 
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flash-messages">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
     <div class="header">
         <h1>Many As Penny (MAP)</h1>
         <p>Live Penny Stock Tracker</p>
         <form action="{{ url_for('add_stock') }}" method="POST" class="add-form">
-            <input type="text" name="new_stock_symbol" placeholder="Enter stock symbol" required>
+            <input type="text" name="new_stock_symbol" placeholder="Search by name or ticker" required>
             <button type="submit">Add Stock</button>
         </form>
     </div>

@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-# NEW IMPORTS for Brevo API
+# IMPORTS for Brevo API
 import brevo_python
 from brevo_python.rest import ApiException
 from brevo_python.models.send_smtp_email import SendSmtpEmail
@@ -14,7 +14,7 @@ load_dotenv()
 
 # Initialize the Flask application
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') # Correct key
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') 
 
 # Connect to Finnhub
 FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
@@ -25,20 +25,21 @@ SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- NEW: Get Brevo API Credentials ---
+# Get Brevo API Credentials
 BREVO_API_KEY = os.getenv('BREVO_API_KEY')
-BREVO_SENDER = os.getenv('BREVO_SENDER') # Your validated 'From' email
+BREVO_SENDER = os.getenv('BREVO_SENDER') # Validated 'From' email
 
-# --- NEW: Configure Brevo API ---
+# Configure Brevo API
 configuration = brevo_python.Configuration()
 configuration.api_key['api-key'] = BREVO_API_KEY
 api_instance = brevo_python.TransactionalEmailsApi(brevo_python.ApiClient(configuration))
 
 
-# --- NEW: Brevo API Email Function (replaces SMTP) ---
+# Brevo API Email Function
 def send_email_alert(target_email, symbol, name, alert_type, current_price, target_price):
     """Builds and sends an HTML email alert using the Brevo API."""
     
+    # Check for all the new variables
     if not BREVO_API_KEY or not BREVO_SENDER:
         print("Brevo keys not set in .env. Skipping email.")
         return
@@ -111,6 +112,12 @@ def get_stock_quote(symbol):
         response = requests.get(url)
         response.raise_for_status() 
         data = response.json()
+        
+        # VALIDATION: A successful quote has a current price 'c' that is not 0
+        if data.get('c') == 0 and data.get('h') == 0:
+            print(f"Found symbol {symbol} but it has no price data (likely not a valid stock).")
+            return {'symbol': symbol, 'error': 'No valid price data found for ticker.'}
+            
         data['symbol'] = symbol 
         return {
             'symbol': symbol, 'current_price': data.get('c'),
@@ -122,17 +129,22 @@ def get_stock_quote(symbol):
         print(f"Error fetching quote for {symbol}: {e}")
         return {'symbol': symbol, 'error': 'Failed to fetch quote'}
 
-def get_stock_profile(symbol):
-    """Fetches static company profile data (like name) from Finnhub API."""
+def search_for_stock(search_term):
+    """Uses Finnhub Search to find the best match for a search term."""
     try:
-        url = f'{FINNHUB_BASE_URL}/stock/profile2?symbol={symbol}&token={FINNHUB_API_KEY}'
+        url = f'{FINNHUB_BASE_URL}/search?q={search_term}&token={FINNHUB_API_KEY}'
         response = requests.get(url)
-        response.raise_for_status()
+        response.raise_for_status() 
         data = response.json()
-        return data.get('name', 'N/A') 
+        
+        if data.get('result') and len(data['result']) > 0:
+            return data['result'][0] 
+        else:
+            return None
+            
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching profile for {symbol}: {e}")
-        return 'N/A'
+        print(f"Error searching for stock {search_term}: {e}")
+        return None
 
 
 @app.route('/')
@@ -196,11 +208,9 @@ def home():
     return render_template('index.html', stocks=stocks)
 
 
-# --- MODIFIED: add_stock function ---
-# This version includes the bug fix for searching by name
 @app.route('/add_stock', methods=['POST'])
 def add_stock():
-    """Searches for a stock and adds it to the database."""
+    """Searches for a stock, validates it, and adds it to the database."""
     search_term = request.form.get('new_stock_symbol')
     
     if not search_term:
@@ -209,12 +219,18 @@ def add_stock():
     # Step 1: Search for the best match
     stock_data = search_for_stock(search_term)
     
-    # Step 2: If a match is found, add it
     if stock_data:
         new_symbol = stock_data.get('symbol')
-        # Use 'description' from search, it's often better than 'name' from profile
         company_name = stock_data.get('description') 
         
+        # VALIDATION STEP: Test if we can get a quote for this symbol.
+        test_quote = get_stock_quote(new_symbol)
+        
+        if test_quote.get('error'):
+            # This is a bad symbol (like AMAN.DB). Don't add it.
+            flash(f"Found '{new_symbol}' but could not fetch price data. It may be an invalid or non-US ticker.")
+            return redirect(url_for('home'))
+            
         try:
             # Check if symbol already exists
             existing = supabase.table('stocks').select('id').eq('symbol', new_symbol).execute()
@@ -231,32 +247,11 @@ def add_stock():
             print(f"Error adding stock: {e}")
             flash("Error adding stock to database.")
             
-    # Step 3: If no match is found, send an error to the user
     else:
+        # No match was found by the search
         flash(f"No stock found for '{search_term}'. Please try a different name or ticker.")
 
     return redirect(url_for('home'))
-
-
-# --- NEW: Function to search for a stock symbol ---
-def search_for_stock(search_term):
-    """Uses Finnhub Search to find the best match for a search term."""
-    try:
-        url = f'{FINNHUB_BASE_URL}/search?q={search_term}&token={FINNHUB_API_KEY}'
-        response = requests.get(url)
-        response.raise_for_status() 
-        data = response.json()
-        
-        # Check if 'result' exists and has items
-        if data.get('result') and len(data['result']) > 0:
-            # Return the first and best match
-            return data['result'][0] 
-        else:
-            return None # No match found
-            
-    except requests.exceptions.RequestException as e:
-        print(f"Error searching for stock {search_term}: {e}")
-        return None
 
 
 @app.route('/delete_stock', methods=['POST'])
@@ -289,7 +284,7 @@ def add_alert():
                 'alert_email': email,
                 'target_price': price,
                 'alert_type': alert_type,
-                'is_triggered': False # New alerts are always untriggered
+                'is_triggered': False
             }).execute()
         except Exception as e:
             print(f"Error adding alert: {e}")
