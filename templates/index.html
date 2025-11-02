@@ -38,11 +38,11 @@
             list-style: none;
             padding: 0;
             margin: 0 auto 20px auto;
-            max-width: 1400px;
+            max-width: 1400px; /* Match the header */
         }
         .flash-messages li {
             padding: 15px;
-            background-color: #dc3545;
+            background-color: #dc3545; /* Red for errors */
             color: white;
             font-weight: bold;
             border-radius: 10px;
@@ -344,7 +344,7 @@
 
     <div class="header">
         <h1>Many As Penny (MAP)</h1>
-        <p>Live Penny Stock Tracker</p>
+        <p>Live Stock Tracker and Alert System</p>
         <form action="{{ url_for('add_stock') }}" method="POST" class="add-form">
             <input type="text" name="new_stock_symbol" placeholder="Search by name or ticker" required>
             <button type="submit">Add Stock</button>
