@@ -74,13 +74,13 @@ h1 {
 .close-flash:hover {
     color: #121212; 
 }
-
 .flash-messages li.success .close-flash {
     color: #006400;
 }
 .flash-messages li.success .close-flash:hover {
     color: #000;
 }
+
 
 /* Add Stock Form */
 .add-form {
@@ -327,7 +327,7 @@ p {
     background: #ff6b81; 
 }
 
-/* Register Page (Two-Column) Layout */
+/* Register Page Layout */
 .splash-container {
     display: flex;
     align-items: flex-start;
@@ -520,4 +520,34 @@ nav strong {
 }
 .footer-card a:hover {
     text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .splash-container {
+        flex-direction: column;
+        margin: 20px auto;
+        gap: 30px;
+    }
+    
+    .splash-left {
+        max-width: 100%;
+        padding: 0;
+        text-align: center;
+    }
+    
+    .splash-right {
+        max-width: 100%;
+        width: 100%;
+    }
+    
+    .auth-container {
+        max-width: 100%;
+    }
+
+    .splash-branding h2 {
+        font-size: 3em;
+    }
+    .splash-branding p {
+        font-size: 1.1em;
+    }
 }
