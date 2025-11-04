@@ -243,31 +243,9 @@ def home():
         stock_data = get_stock_quote(stock['symbol'])
         stock.update(stock_data) 
         
-        stock_alerts = [alert for alert in all_alerts if alert['stock_id'] == stock['id']]
-        
-        if not stock.get('error') and stock.get('current_price') is not None:
-            current_price = stock['current_price']
-            
-            for alert in stock_alerts:
-                is_triggered = False
-                if alert['alert_type'] == 'high' and current_price >= alert['target_price']:
-                    is_triggered = True
-                elif alert['alert_type'] == 'low' and current_price <= alert['target_price']:
-                    is_triggered = True
-
-                if is_triggered and alert['is_triggered'] is False:
-                    print(f"Triggering {alert['alert_type']} alert for {stock['symbol']} to {alert['alert_email']}")
-                    send_email_alert(
-                        alert['alert_email'], stock['symbol'], stock['name'],
-                        alert['alert_type'], current_price, alert['target_price']
-                    )
-                    supabase.table('alerts').update({'is_triggered': True}).eq('id', alert['id']).execute()
-                    alert['is_triggered'] = True
-        
-        stock['alerts'] = stock_alerts
+        stock['alerts'] = [alert for alert in all_alerts if alert['stock_id'] == stock['id']]
             
     return render_template('index.html', stocks=stocks)
-
 
 # Add Stock Function
 @app.route('/add_stock', methods=['POST'])
