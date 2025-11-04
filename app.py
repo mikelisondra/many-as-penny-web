@@ -3,6 +3,7 @@ import requests
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from check_alerts import check_all_alerts
 
 # Imports for Login System
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -359,3 +360,15 @@ def delete_alert():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+# Secret route to be run by UptimeRobot
+@app.route('/run-alert-check')
+def run_alert_check():
+
+    secret = request.args.get('secret')
+
+    if secret == os.getenv('CRON_SECRET'):
+        check_all_alerts()
+        return "Alert check finished.", 200
+    else:
+        return "Error: Invalid secret key.", 403
