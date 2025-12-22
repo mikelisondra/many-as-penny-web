@@ -1,0 +1,553 @@
+html {
+    height: 100%;
+}
+body {
+    background-color: #121212; 
+    color: #e1e1e1; 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+.content-wrapper {
+    flex-grow: 1;
+}
+
+/* Header */
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+    background-color: #1e1e1e; 
+    padding: 20px; 
+    border-radius: 10px; 
+    border: 1px solid #333; 
+    max-width: 1400px;
+    margin-left: auto; 
+    margin-right: auto; 
+}
+
+h1 {
+    color: #4CAF50; 
+    font-size: 2.5em; 
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+/* Style for flash messages */
+.flash-messages {
+    list-style: none;
+    padding: 0;
+    margin: 0 auto 20px auto;
+    max-width: 1400px;
+}
+.flash-messages li {
+    padding: 15px;
+    padding-right: 40px; 
+    background-color: #dc3545;
+    color: white;
+    font-weight: bold;
+    border-radius: 10px;
+    border: 1px solid #ff6b81;
+    position: relative; 
+    z-index: 10;
+}
+
+.flash-messages li.success {
+    background-color: #28a745;
+    border-color: #34d399;
+}
+
+.close-flash {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.close-flash:hover {
+    color: #121212; 
+}
+.flash-messages li.success .close-flash {
+    color: #006400;
+}
+.flash-messages li.success .close-flash:hover {
+    color: #000;
+}
+
+
+/* Add Stock Form */
+.add-form {
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
+.add-form input[type="text"] {
+    padding: 10px;
+    font-size: 1em;
+    width: 200px;
+    background-color: #222;
+    border: 1px solid #444;
+    border-radius: 5px;
+    color: #e1e1e1;
+}
+.add-form button {
+    padding: 10px 15px;
+    font-size: 1em;
+    color: #ffffff;
+    background-color: #4CAF50;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.add-form button:hover {
+    background-color: #45a049;
+}
+
+/* Main Stock Card Grid */
+.container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+.stock-card {
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #333;
+    text-align: center;
+    position: relative;
+    transition: all 0.2s ease-in-out; 
+    display: flex;
+    flex-direction: column;
+}
+
+/* Stock Card Delete Button */
+.delete-form {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+.stock-card:hover .delete-form {
+    opacity: 1;
+}
+.delete-form button {
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    color: #bbb;
+    font-weight: bold;
+    font-size: 1em;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    line-height: 26px;
+    padding: 0;
+    transition: all 0.2s ease-in-out;
+}
+.delete-form button:hover {
+    background-color: #dc3545;
+    border-color: #ff6b81;
+    color: #ffffff;
+}
+
+/* Stock Card Info */
+.stock-info {
+    flex-grow: 1;
+}
+.stock-symbol {
+    font-size: 2em;
+    font-weight: bold;
+    margin-top: 20px;
+    color: #ffffff;
+    cursor: default;
+}
+.current-price {
+    font-size: 3em;
+    font-weight: bold;
+    margin: 10px 0;
+    color: #ffffff;
+}
+.company-name {
+    font-size: 0.9em;
+    color: #aaa;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease-out;
+}
+.stock-symbol:hover + .company-name,
+.company-name:hover {
+    opacity: 1;
+    height: 20px;
+    margin-top: 5px;
+}
+.price-change {
+    font-size: 1.2em;
+}
+.positive {
+    color: #4CAF50; 
+}
+.negative {
+    color: #dc3545; 
+}
+.details {
+    margin-top: 20px;
+    font-size: 0.9em;
+    color: #aaa;
+    text-align: left;
+}
+.details p {
+    margin: 5px 0;
+    display: flex;
+    justify-content: space-between;
+}
+.details span {
+    font-weight: bold;
+    color: #e1e1e1;
+}
+.error {
+    color: #dc3545;
+}
+p {
+    color: #aaa;
+}
+
+/* "Add Alert" Form */
+.alert-form {
+    margin-top: 20px;
+    border-top: 1px solid #333;
+    padding-top: 15px;
+}
+.alert-form input[type="email"],
+.alert-form input[type="number"],
+.alert-form select {
+    width: 90%;
+    padding: 8px;
+    margin-bottom: 10px;
+    background-color: #222;
+    border: 1px solid #444;
+    color: #e1e1e1;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+.alert-form .price-row {
+    display: flex;
+    gap: 10px;
+}
+.alert-form .price-row input[type="number"] {
+    width: 50%;
+    margin-bottom: 0;
+}
+.alert-form .price-row select {
+    width: 50%;
+    margin-bottom: 0;
+}
+.alert-form button {
+    display: block;
+    width: 100%;
+    margin-top: 15px;
+    padding: 8px;
+    font-weight: bold;
+    color: #fff;
+    background-color: #4CAF50;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.alert-form button:hover {
+    background-color: #45a049;
+}
+
+/* "Existing Alerts" List */
+.existing-alerts {
+    margin-top: 15px;
+    border-top: 1px solid #333;
+    padding-top: 15px;
+    text-align: left;
+}
+.existing-alerts h4 {
+    margin-top: 0;
+    text-align: center;
+    color: #aaa;
+}
+.alert-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 5px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    background-color: #2a2a2a;
+    margin-bottom: 5px;
+}
+.alert-row.triggered {
+    background-color: #333;
+    color: #777;
+    text-decoration: line-through;
+}
+.alert-row .email-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+.alert-row-delete-form {
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+.alert-row:hover .alert-row-delete-form {
+    opacity: 1;
+}
+.alert-row-delete-form button {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.8em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    line-height: 22px;
+    transition: all 0.2s ease-in-out;
+}
+.alert-row-delete-form button:hover {
+    background: #ff6b81; 
+}
+
+/* Register Page Layout */
+.splash-container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 80px;
+    max-width: 1100px;
+    margin: 80px auto;
+    padding: 20px;
+}
+.splash-left {
+    flex: 1;
+    max-width: 500px;
+    padding-right: 20px;
+    padding-top: 40px;
+}
+.splash-right {
+    flex: 1;
+    max-width: 400px;
+}
+.splash-branding h2 {
+    color: #4CAF50;
+    font-size: 3.8em;
+    margin-top: 0;
+    margin-bottom: 15px;
+    line-height: 1.1;
+}
+.splash-branding p {
+    font-size: 1.3em;
+    color: #aaa;
+    line-height: 1.6;
+    margin-bottom: 40px;
+}
+
+/* Login/Register Form Cards */
+.auth-container {
+    max-width: 450px;
+    padding: 30px 40px;
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    color: #e1e1e1;
+    margin: 0;
+    position: relative; 
+    z-index: 2;
+}
+.auth-container-centered {
+    margin: 40px auto 0 auto;
+}
+.auth-container h2 {
+    text-align: left;
+    color: #4CAF50;
+    margin-top: 0;
+    font-size: 1.6em;
+    margin-bottom: 25px;
+}
+.auth-container-centered h2 {
+    text-align: center; 
+    color: #ffffff;
+}
+.auth-form .form-group {
+    margin-bottom: 20px;
+}
+.auth-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: #aaa;
+    font-weight: bold;
+    font-size: 0.95em;
+}
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+    width: 100%;
+    padding: 12px 15px;
+    background-color: #222;
+    border: 1px solid #444;
+    color: #e1e1e1;
+    border-radius: 6px;
+    box-sizing: border-box; 
+    font-size: 1em;
+}
+.auth-form input[type="email"]:focus,
+.auth-form input[type="password"]:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+.auth-form button {
+    width: 100%;
+    padding: 14px 15px;
+    font-size: 1.1em;
+    color: #ffffff;
+    background-color: #4CAF50;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 25px;
+    transition: background-color 0.2s;
+}
+.auth-form button:hover {
+    background-color: #45a049;
+}
+.auth-link {
+    text-align: center;
+    margin-top: 25px;
+    font-size: 0.95em;
+    color: #aaa;
+}
+.auth-link a {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: bold;
+}
+.auth-link a:hover {
+    text-decoration: underline;
+}
+
+/* Navigation Bar */
+nav {
+    max-width: 1400px;
+    margin: -20px auto 20px auto;
+    padding: 10px;
+    text-align: right;
+    position: relative; 
+    z-index: 2;
+}
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+nav li {
+    display: inline-block;
+    margin-left: 20px;
+}
+nav a {
+    color: #aaa;
+    text-decoration: none;
+    font-weight: bold;
+}
+nav a:hover {
+    color: #4CAF50;
+}
+nav strong {
+    color: #e1e1e1;
+}
+
+/* Login Page Title */
+.auth-logo-header {
+    text-align: center;
+    margin-bottom: 20px;
+    margin-top: 40px;
+}
+.auth-logo-header h2 {
+    font-size: 2.5em;
+    color: #4CAF50;
+    margin: 0;
+}
+
+/* Footer Card */
+.footer-card {
+    text-align: center;
+    margin-top: 30px;
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #333;
+    max-width: 1400px;
+    margin-left: 0;
+    margin-right: 0;
+    color: #aaa;
+    position: relative; 
+    z-index: 2;
+}
+.footer-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+.github-logo {
+    width: 24px;
+    height: 24px;
+    filter: invert(1);
+}
+.footer-card a {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: bold;
+}
+.footer-card a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .splash-container {
+        flex-direction: column;
+        margin: 20px auto;
+        gap: 30px;
+    }
+    
+    .splash-left {
+        max-width: 100%;
+        padding: 0;
+        text-align: center;
+    }
+    
+    .splash-right {
+        max-width: 100%;
+        width: 100%;
+    }
+    
+    .auth-container {
+        max-width: 100%;
+    }
+
+    .splash-branding h2 {
+        font-size: 3em;
+    }
+    .splash-branding p {
+        font-size: 1.1em;
+    }
+}
